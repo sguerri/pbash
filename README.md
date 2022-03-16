@@ -1,7 +1,7 @@
 # Welcome to pbash
 
 [![](https://badgen.net/github/release/sguerri/pbash)](https://github.com/sguerri/pbash/releases/)
-[![](https://img.shields.io/github/workflow/status/sguerri/pbash/Build/v0.0.0)](https://github.com/sguerri/pbash/actions/workflows/build.yml)
+[![](https://img.shields.io/github/workflow/status/sguerri/pbash/Build/v0.1.0)](https://github.com/sguerri/pbash/actions/workflows/build.yml)
 [![](https://badgen.net/github/license/sguerri/pbash)](https://www.gnu.org/licenses/)
 [![](https://badgen.net/pypi/v/pbash)](https://pypi.org/project/pbash/)
 [![](https://badgen.net/pypi/python/pbash)](#)
@@ -88,7 +88,7 @@ Note that `dh-virtualenv` built packages are dependent of python version. Use th
 Download latest `.deb` file from the [release page](https://github.com/sguerri/pbash/releases).
 
 ```bash
-sudo dpkg -i pbash_0.0.0_{{os}}_amd64.deb
+sudo dpkg -i pbash_0.1.0_{{os}}_amd64.deb
 ```
 
 ## Usage
