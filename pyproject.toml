@@ -1,0 +1,27 @@
+[build-system]
+requires = ["poetry_core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "pbash"
+version = "0.1.0"
+description = "Bash Script Manager"
+authors = ["Sebastien GUERRI <nierrgu@bmel.fr>"]
+license = "GPL-3.0"
+readme = "README.md"
+homepage = "https://github.com/sguerri/pbash"
+repository = "https://github.com/sguerri/pbash"
+packages = [
+    { include = "pbash" },
+    { include = "pbash/modules" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.6.2,<4.0"
+click = "^8.0.4"
+rich = "^11.2.0"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+pbash = "pbash:run"

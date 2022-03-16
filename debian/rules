@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+
+override_dh_virtualenv:
+	dh_virtualenv \
+		--python /usr/bin/python3 \
+		--preinstall poetry>=1.0.0 \
+		--preinstall dh-poetry==0.2.0 \
+		--pip-tool dh-poetry
+
+%:
+	dh $@ --with python-virtualenv --with bash-completion
+	

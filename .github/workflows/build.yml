@@ -1,0 +1,167 @@
+name: Build
+
+on:
+  push:
+    tags: ['v[0-9].[0-9]+.[0-9]+']
+
+env:
+  APP_NAME: pbash
+  APP_VERSION: "0.1.0"
+  PPA_REPO: sguerri/ppa
+  PPA_USER: Sébastien GUERRI
+  PPA_EMAIL: 13090870+sguerri@users.noreply.github.com
+  BUILD_TYPE: Release
+
+jobs:
+  build-deb:
+
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    container: ${{ matrix.config.container }}
+    strategy:
+      fail-fast: true
+      max-parallel: 4
+      matrix:
+        config:
+          - name: bionic
+            os: ubuntu-20.04
+            container: ubuntu:18.04
+            triplet: x64-linux
+          - name: focal
+            os: ubuntu-20.04
+            container: ubuntu:20.04
+            triplet: x64-linux
+          - name: hirsute
+            os: ubuntu-20.04
+            container: ubuntu:21.04
+            triplet: x64-linux
+          - name: impish
+            os: ubuntu-20.04
+            container: ubuntu:21.10
+            triplet: x64-linux
+
+    steps:
+      - name: Setup container
+        run: |
+          apt-get update && \
+          apt-get upgrade -y && \
+          DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata && \
+          apt-get install -y sudo ca-certificates unzip gnupg curl git && \
+          apt-get install -y software-properties-common && \
+          apt-get install -y build-essential && \
+          apt-get install -y python3 python3-venv python3-pip
+
+      - name: Checkout current version
+        uses: actions/checkout@v2
+
+      - name: Install dependencies (focal)
+        if: matrix.config.name == 'focal'
+        run: |
+          sudo add-apt-repository ppa:jyrki-pulliainen/dh-virtualenv && \
+          sudo apt update && \
+          sudo apt install -y debhelper devscripts equivs dh-virtualenv bash-completion
+
+      - name: Install dependencies (others)
+        if: matrix.config.name != 'focal'
+        run: |
+          sudo apt install -y debhelper devscripts equivs dh-virtualenv bash-completion
+
+      - name: Install python dependencies
+        run: |
+          python3 -m pip install virtualenv build
+
+      - name: Build deb
+        run: |
+          dpkg-buildpackage -us -uc
+
+      - name: Copy build items
+        run: |
+          mkdir dist && \
+          mv ../${{env.APP_NAME}}_${{env.APP_VERSION}}_amd64.deb ./dist/${{env.APP_NAME}}_${{env.APP_VERSION}}_${{ matrix.config.name }}_amd64.deb
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: deb-${{ matrix.config.name }}
+          path: ./dist/${{env.APP_NAME}}_${{env.APP_VERSION}}_${{ matrix.config.name }}_amd64.deb
+
+# TODO add publish to PPA
+
+  build-python:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout current version
+        uses: actions/checkout@v2
+
+      - name: Install python dependencies
+        run: |
+          python3 -m pip install build
+
+      - name: Build python
+        run: |
+          python3 -m build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  release:
+    runs-on: ubuntu-20.04
+    needs: [ 'build-deb', 'build-python' ]
+
+    steps:
+      - name: Checkout current version
+        uses: actions/checkout@v2
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Move all files
+        run: |
+          mkdir ./dist && \
+          find . -mindepth 2 -type f -print -exec mv {} ./dist \;
+        working-directory: artifacts
+
+      - name: Release
+        uses: fnkr/github-action-ghr@v1
+        env:
+          GHR_PATH: artifacts/dist/
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# TODO remove all artifacts
+
+
+#  cleanup_job:
+#    needs: [ publish ]
+#    if: always()
+#    runs-on: ubuntu-latest
+#    steps:
+#    - name: call webhook to delete artifacts
+#      env:
+#        FOR_WEBHOOKS_SECRET: ${{ secrets.FOR_WEBHOOKS_SECRET }}
+#      run: |
+#        echo "::add-mask::$FOR_WEBHOOKS_SECRET"
+#        curl --verbose --fail --show-error --location --request POST "https://api.github.com/repos/$GITHUB_REPOSITORY/dispatches" --header "Authorization: token $FOR_WEBHOOKS_SECRET" --header 'Content-Type: application/json' --header 'Accept: application/vnd.github.everest-preview+json' --data-raw "{ \"event_type\": \"delete_all_artifacts\", \"client_payload\": {\"parent_runid\": \"$GITHUB_RUN_ID\", \"parent_repo\": \"$GITHUB_REPOSITORY\"} }"
+
+#      - name: Pushes to PPA
+#        run: |
+#          git config --global user.email "${{ env.PPA_EMAIL }}" && \
+#          git config --global user.name "${{ env.PPA_USER }}" && \
+#          git clone --single-branch --branch master "https://x-access-token:${{ secrets.PUBLISH_PPA }}@github.com/${{ env.PPA_REPO }}.git" published && \
+#          cp "${{ env.APP_NAME }}_${{ env.APP_VERSION }}_amd64_${{ matrix.config.name }}.deb" "published/dists/${{ matrix.config.name }}/${{ env.APP_NAME }}_${{ env.APP_VERSION }}_amd64.deb" && \
+#          cd published && \
+#          git add . && \
+#          git commit -m "[${{ matrix.config.name }}] Add ${{ env.APP_NAME }}_${{ env.APP_VERSION }}_amd64.deb" && \
+#          git pull --no-edit && \
+#          git push -u origin master
